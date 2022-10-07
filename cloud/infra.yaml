@@ -4,7 +4,6 @@ Description: |
   Assessment test 2
 
 Resources:
-
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -14,11 +13,11 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
                 Resource:
-                  - 'arn:aws:logs:*:*:*'
+                  - "arn:aws:logs:*:*:*"
                 Effect: Allow
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -33,7 +32,7 @@ Resources:
   Lambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: 'getFruit'
+      FunctionName: "getFruit"
       Role: !GetAtt LambdaRole.Arn
       Handler: index.handler
       Runtime: nodejs16.x
@@ -69,31 +68,31 @@ Resources:
       IntegrationType: AWS_PROXY
       IntegrationMethod: POST
       PayloadFormatVersion: "2.0"
-      IntegrationUri: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Lambda.Arn}/invocations'
+      IntegrationUri: !Sub "arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Lambda.Arn}/invocations"
 
   MyApiGateway:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: "MyApiGateway"
+      Name: "janApiGateway"
       ProtocolType: "HTTP"
-      # CorsConfiguration:
-      #   AllowHeaders:
-      #     - Authorization
-      #   AllowMethods:
-      #     - GET
-      #     - POST
-      #     - OPTIONS
-      #   AllowOrigins:
-      #     - '*'
+      CorsConfiguration:
+        AllowHeaders:
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - "*"
 
   MyApiGatewayStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
       AutoDeploy: true
       DeploymentId: !Ref MyApiGatewayDeployment
-      StageName: '$default'
+      StageName: "$default"
       ApiId: !Ref MyApiGateway
-  
+
   MyApiGatewayDeployment:
     Type: AWS::ApiGatewayV2::Deployment
     DependsOn:
@@ -111,3 +110,36 @@ Resources:
         - /
         - - integrations
           - !Ref LambdaIntegration
+
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      AccessControl: PublicRead
+      BucketName: jan-assessment2
+      MetricsConfigurations:
+        - Id: EntireBucket
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+        RoutingRules:
+          - RoutingRuleCondition:
+              HttpErrorCodeReturnedEquals: "404"
+              KeyPrefixEquals: out1/
+            RedirectRule:
+              HostName: ec2-11-22-333-44.compute-1.amazonaws.com
+              ReplaceKeyPrefixWith: report-404/
+    DeletionPolicy: Retain
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt
+      - S3Bucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join
+      - ""
+      - - "https://"
+        - !GetAtt
+          - S3Bucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content
